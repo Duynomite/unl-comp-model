@@ -399,10 +399,10 @@
                 <div>
                   <div className="flex items-baseline justify-between mb-1">
                     <div className="font-heading font-bold text-deep-navy">HI Shield</div>
-                    <div className="text-xs font-heading font-semibold text-secondary bg-light-cyan/60 px-2 py-0.5 rounded">Secondary / pivot</div>
+                    <div className="text-xs font-heading font-semibold text-secondary bg-light-cyan/60 px-2 py-0.5 rounded">Same-call cross-sell</div>
                   </div>
                   <div className="text-xs text-mid-blue mb-2">Hospital Indemnity · ages 50–85</div>
-                  <div className="text-text leading-relaxed">Pays the customer a daily cash benefit for each day of hospital confinement. Commission rate drops slightly at age 80, and renewals split into Years 2–10 (higher) and Year 11+ (lower) tiers. Sells well as a pivot when HHC knocks the prospect out, and as a same-call cross-sell on MA appointments when the prospect has real hospital copay exposure.</div>
+                  <div className="text-text leading-relaxed">Pays the customer a daily cash benefit for each day of hospital confinement. Commission rate drops slightly at age 80, and renewals split into Years 2–10 (higher) and Year 11+ (lower) tiers. <strong className="text-secondary">Sells as a same-call cross-sell on HHC, MA, or any ancillary appointment</strong> when the prospect has real hospital copay exposure — both HHC and HI are ancillary products, so adding HI to an HHC sale doesn't trigger any new compliance friction. It's the natural "completes the coverage" move. Also serves as the pivot when HHC underwriting knocks the prospect out.</div>
                 </div>
               </div>
             </div>
@@ -1174,6 +1174,14 @@
           a: 'Yes, and same-call cross-sell is the standard compliant flow. If you start the call as an MA appointment with a Scope of Appointment that lists BOTH Medicare Advantage AND "other health-related plans" (the SOA checkbox that covers HI/HHC), you can present and enroll both products on the same call. HI/HHC are health-related, so MCMG §40.7 (the non-health cross-sell ban — annuities, life, etc.) does not apply. Make sure your SOA template explicitly checks the ancillary box at the start — that\'s what gives you scope for both. (Carrier-specific rules can be stricter; verify against UNL\'s and CPC\'s compliance bulletins.)',
         },
         {
+          q: "What if my MA call doesn't close — can I still earn anything?",
+          a: "Yes — this is the expert move new agents miss. When an MA call doesn't close (customer isn't in a valid SEP, their current plan is fine, the plan they want isn't available in their county, they're not yet 65), most new agents end the call. Don't. Two things are still true: their current MA plan still has hospital copay exposure, and Medicare still doesn't cover daily-living help at home for any plan. Both gaps are filled by HI and HHC — without changing anything about their current Medicare. Your SOA at the start covered HI/HHC, so you're already in scope. Pivot: \"Even though we can't change your MA plan today, your current plan still leaves you with the daily hospital copay if you ever get admitted, and Medicare doesn't cover daily-living help at home regardless of which plan you're on. Couple quick questions to see if it's a fit?\" Failed MA calls become ancillary sales. Over 50 calls, the agents who use this move out-earn the ones who don't, by a lot.",
+        },
+        {
+          q: 'Can I sell both HHC and HI to the same customer on the same call?',
+          a: "Yes. Both are ancillary products — neither requires an MA Scope of Appointment, and adding HI to an HHC discussion doesn't trigger any new compliance friction (and vice versa). If hospital pain surfaces during your HHC discovery — a recent admission, family member's hospital scare, budget anxiety about copays — pitch HI as the natural \"completes the coverage\" addition. This is incremental commission per call: a single customer can generate both HHC and HI commission, plus renewals on both, for years.",
+        },
+        {
           q: 'Why does my rate change between states?',
           a: 'UNL sets a different commission schedule in a small number of states based on each state\'s insurance regulations. Your rate for any sale is exactly the rate shown for the customer\'s state — no further deductions.',
         },
@@ -1214,18 +1222,38 @@
     function NextStep() {
       return (
         <section className="bg-gradient-to-br from-secondary to-deep-navy text-white rounded-2xl p-6 sm:p-8 shadow-xl">
-          <div className="grid sm:grid-cols-[1fr_auto] gap-5 items-center">
-            <div>
-              <div className="text-accent text-xs uppercase tracking-widest font-heading font-semibold mb-2">Next step</div>
-              <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2">Now learn how to actually sell it.</h2>
-              <p className="text-white/80 text-sm sm:text-base leading-relaxed">
-                This tool covers compensation. The <strong className="text-accent">UNL Ancillary Crash Course</strong> covers everything else — what HHC and HI actually cover, the Medicare gap that creates demand, the NEPQ-based sales script, the math reframe for the Rx benefit, the 5 most common objections (with verbatim responses), and the compliance + graceful-disqualification rules. About 25 minutes end to end. Read it before your first call.
-              </p>
-            </div>
+          <div className="text-accent text-xs uppercase tracking-widest font-heading font-semibold mb-3">Your full toolkit</div>
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2">Now learn how to actually sell it.</h2>
+          <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-6 max-w-3xl">
+            This tool covers compensation. The three tools below cover everything else you'll need — sales training, customer math, and the deep reference library. Read the Crash Course first; keep the Rx Calculator open during calls.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-3">
             <a href="https://duynomite.github.io/unl-crash-course/" target="_blank" rel="noopener"
-              className="inline-flex items-center justify-center gap-2 bg-accent text-deep-navy font-heading font-semibold px-6 py-4 rounded-xl hover:bg-accent/90 transition-colors whitespace-nowrap">
-              Open the Crash Course
-              <span aria-hidden="true">→</span>
+              className="bg-white/10 hover:bg-white/15 backdrop-blur rounded-xl p-5 border border-white/10 transition-colors block group">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-accent font-heading font-semibold">Crash Course</div>
+                <span className="text-accent/70 group-hover:text-accent transition-colors" aria-hidden="true">→</span>
+              </div>
+              <div className="text-white text-sm font-heading font-semibold mb-1">Start here · 25 min</div>
+              <div className="text-white/70 text-xs leading-relaxed">Product specs, Medicare gap, NEPQ script, math reframe, objections, compliance. End-to-end sales training before your first call.</div>
+            </a>
+            <a href="https://duynomite.github.io/unl-rx-calculator/" target="_blank" rel="noopener"
+              className="bg-white/10 hover:bg-white/15 backdrop-blur rounded-xl p-5 border border-white/10 transition-colors block group">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-accent font-heading font-semibold">Rx Calculator</div>
+                <span className="text-accent/70 group-hover:text-accent transition-colors" aria-hidden="true">→</span>
+              </div>
+              <div className="text-white text-sm font-heading font-semibold mb-1">Use on calls</div>
+              <div className="text-white/70 text-xs leading-relaxed">Plug in the customer's prescriptions, see their real net cost at each HHC tier after Rx reimbursement. Safe to screen-share.</div>
+            </a>
+            <a href="https://duynomite.github.io/unl-academy/" target="_blank" rel="noopener"
+              className="bg-white/10 hover:bg-white/15 backdrop-blur rounded-xl p-5 border border-white/10 transition-colors block group">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-accent font-heading font-semibold">Academy</div>
+                <span className="text-accent/70 group-hover:text-accent transition-colors" aria-hidden="true">→</span>
+              </div>
+              <div className="text-white text-sm font-heading font-semibold mb-1">Deep reference · ~5 hrs</div>
+              <div className="text-white/70 text-xs leading-relaxed">Pitch library (51 frames), 10 practice scenarios, Stat Bank, full state matrix, complete training course.</div>
             </a>
           </div>
         </section>
