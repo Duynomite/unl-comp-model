@@ -353,7 +353,7 @@
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-accent text-deep-navy font-heading font-bold flex items-center justify-center text-sm">1</div>
                   <div>
-                    <strong>75% of your Year 1 is advanced upfront</strong> — paid in one lump the month the policy takes effect and UNL pays CPC. On a $780 sale, that's <strong className="tabular-nums">$146.25</strong> hitting your account 1–2 months after you submit the application.
+                    <strong>75% of your Year 1 is advanced upfront</strong> — paid as one lump shortly after the customer's first premium draft. UNL pays CPC fast on placement, and CPC pays you out. Typically you see the advance within a month of submitting the application. On a $780 sale, that's <strong className="tabular-nums">$146.25</strong>.
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -407,8 +407,8 @@
                   <div className="text-white/80">No — that's a typical example at $780 premium. Higher premiums earn more; states with adjusted schedules earn slightly less. Use the per-sale calculator below to see your exact number for any scenario.</div>
                 </div>
                 <div>
-                  <div className="text-accent font-heading font-semibold mb-0.5">Can I cross-sell Medicare Advantage on an ancillary call?</div>
-                  <div className="text-white/80">No — CMS rules require a separate inbound call from the customer before any MA discussion. See the FAQ for the full second-call rule.</div>
+                  <div className="text-accent font-heading font-semibold mb-0.5">Can I cross-sell Medicare Advantage to ancillary customers?</div>
+                  <div className="text-white/80">Yes — but it has to happen on a separate call. You can't pivot an ancillary call into an MA discussion on the same call (CMS rule). The customer needs to call you back, and you obtain a fresh Scope of Appointment before any MA talk. Done correctly, ancillary + MA cross-sell is a real income stream — see the FAQ and the cross-sell toggle in the career calculator below.</div>
                 </div>
               </div>
             </div>
@@ -820,9 +820,9 @@
 
       const rows = [
         {
-          when: 'Effective month', sub: 'Policy goes active',
+          when: 'First draft', sub: 'Within a month of submit',
           title: 'Upfront advance hits',
-          body: 'Paid the month UNL activates the policy and pays CPC — usually 1–2 months after you submit the application, depending on the effective date the customer chose. This is 75% of your Year 1 commission, paid in one lump.',
+          body: 'Paid shortly after the customer\'s first premium draft processes. UNL pays CPC fast on placement, and CPC pays you out — typically within a month of when you submitted the application. This is 75% of your Year 1 commission, paid in one lump.',
           value: fmt$(advance), unit: null,
           border: 'border-accent', bg: 'bg-accent/20',
         },
@@ -883,7 +883,7 @@
           </div>
 
           <div className="mt-6 text-xs text-mid-blue bg-light-cyan/40 rounded-lg p-4 leading-relaxed">
-            <strong className="text-secondary">Important:</strong> Your first dollar arrives the month the policy <em>takes effect</em> — not the day you submit the application. Submitted apps wait for underwriting, customer signature/payment, and the policy's chosen effective date before UNL pays the commission. Most ancillary policies effect 1–2 months after submit. After that, the advance (75%) lands as one lump, then months 10, 11, 12 pay the remaining 25% as monthly residuals.
+            <strong className="text-secondary">Important:</strong> Your first dollar arrives after the customer's first premium draft processes — not the day you submit. The customer signs and pays, the policy takes effect, the first draft hits, UNL pays CPC, and CPC pays you. The whole loop typically completes within a month of submit. From there, the advance (75%) lands as one lump, and months 10, 11, 12 pay the remaining 25% as monthly residuals.
           </div>
         </section>
       );
@@ -1135,7 +1135,7 @@
       const items = [
         {
           q: 'When do I actually get paid?',
-          a: 'Your 75% advance is paid shortly after the policy is issued and accepted by UNL. The remaining 25% of Year 1 pays out across months 10, 11, and 12 as you "earn" it. Renewals start in Year 2 and pay every year the policy stays in force.',
+          a: 'Your 75% advance is paid shortly after the customer\'s first premium draft processes — UNL pays CPC fast on placement, and CPC pays you out. Typically you see the advance within a month of when you submitted the application. The remaining 25% of Year 1 pays out across months 10, 11, and 12 as you "earn" it. Renewals start in Year 2 and pay every year the policy stays in force.',
         },
         {
           q: 'What counts as a cancellation?',
