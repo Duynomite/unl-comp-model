@@ -408,7 +408,7 @@
                 </div>
                 <div>
                   <div className="text-accent font-heading font-semibold mb-0.5">Can I cross-sell Medicare Advantage to ancillary customers?</div>
-                  <div className="text-white/80">Yes — but it has to happen on a separate call. You can't pivot an ancillary call into an MA discussion on the same call (CMS rule). The customer needs to call you back, and you obtain a fresh Scope of Appointment before any MA talk. Done correctly, ancillary + MA cross-sell is a real income stream — see the FAQ and the cross-sell toggle in the career calculator below.</div>
+                  <div className="text-white/80">Yes — and the rules depend on which direction. <strong className="text-accent">MA → ancillary on the same call is fine</strong> when you start the call as an MA appointment with a Scope of Appointment that lists both MA and ancillary plans (HI/HHC fit on the standard "other health-related plans" checkbox). <strong className="text-accent">Ancillary → MA same-call is not allowed</strong> — if a call started as HI/HHC with no SOA, you can't pivot to MA. The customer must call you back, and you obtain a fresh SOA before any MA talk. See the FAQ for the full mechanic.</div>
                 </div>
               </div>
             </div>
@@ -525,7 +525,7 @@
                 </button>
                 {!crossSellOn && (
                   <div className="mt-3 text-xs text-mid-blue bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
-                    ⚠ <strong>Heads up:</strong> You can't pivot an ancillary call into a Medicare Advantage conversation — CMS requires a separate inbound call from the customer first. Toggle on to see the math; FAQ has the full rule.
+                    ⚠ <strong>Direction matters:</strong> Cross-sell is fine when you start a call as MA with an SOA that covers both MA and ancillary. <strong>You can't go the other direction</strong> — pivoting from ancillary to MA on the same call requires the customer to call you back so you can obtain a fresh SOA first. Toggle on for the math; FAQ has the rule.
                   </div>
                 )}
 
@@ -549,9 +549,11 @@
                       </div>
                       <div className="text-xs text-soft-blue mt-2">CPC tier rate per Month-4 retained MA policy — see your 1099 agreement for your current tier.</div>
                     </div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 leading-relaxed">
-                      <div className="font-heading font-semibold mb-1">⚠ CMS compliance — second-call rule</div>
-                      <div>You <strong>cannot</strong> pivot an ancillary call into a Medicare Advantage discussion on the same call (42 CFR §422.2264). The customer must <strong>call you back on a separate inbound call</strong>, where you obtain a fresh Scope of Appointment before any MA talk. The cross-sell rate above assumes you're doing this compliantly — expect drop-off between Call 1 and Call 2, so a "15%" cross-sell typically means closing ~6–15% of your ancillary customers on MA via callback. See the FAQ for details.</div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 leading-relaxed space-y-2">
+                      <div className="font-heading font-semibold">⚠ CMS compliance — the direction of the call matters</div>
+                      <div><strong>MA → ancillary, same call:</strong> Fine, as long as the SOA you read at the start covers both Medicare Advantage AND "other health-related plans" (HI/HHC fit here). This is the standard cross-sell flow.</div>
+                      <div><strong>Ancillary → MA, same call:</strong> Not allowed. If a call started as HI/HHC (no SOA), you can't pivot to MA on the same call — the customer must call you back, you obtain a fresh SOA, then proceed with MA. (42 CFR §422.2264 + the 48-hour pre-appointment rule.)</div>
+                      <div className="pt-1 border-t border-amber-200">The cross-sell rate above assumes a working mix of MA-led same-call cross-sells and ancillary-led callbacks. Expect drop-off on the callback path — a "15%" cross-sell on an ancillary-led book typically closes ~6–15% via callback.</div>
                     </div>
                   </div>
                 )}
@@ -1151,7 +1153,11 @@
         },
         {
           q: 'I\'m on an ancillary call and the customer brings up their Medicare plan. Can I help them with that on this call?',
-          a: 'No — and this is one of the easiest ways to get terminated, so it matters. CMS marketing rules (42 CFR §422.2264) prohibit pivoting an ancillary call into a Medicare Advantage discussion. The correct move: (1) finish the ancillary conversation cleanly, (2) ask the customer to call you back on your MA-licensed line, and (3) on that second inbound call, obtain a fresh Scope of Appointment before any MA talk. The asymmetry matters — on an MA-led call you CAN cross-sell ancillary at the end (the SOA already covers it). The reverse is not allowed. The MA cross-sell rate in this tool assumes you\'re doing this compliantly via call-backs, which is why expected attach is typically 6–15% of your ancillary customers, not higher.',
+          a: 'No — this is one of the easiest ways to get terminated, so it matters. If a call started as HI/HHC (no Scope of Appointment), you cannot pivot to MA on the same call. The correct move: (1) finish the ancillary conversation cleanly, (2) ask the customer to call you back on your MA-licensed line, (3) on that second call, obtain a fresh SOA before any MA discussion. This comes from 42 CFR §422.2264 and CMS\'s 48-hour pre-appointment rule. The direction asymmetry matters — see the MA-led question below for the other direction.',
+        },
+        {
+          q: 'What about the other direction — can I cross-sell HI/HHC on an MA call?',
+          a: 'Yes, and same-call cross-sell is the standard compliant flow. If you start the call as an MA appointment with a Scope of Appointment that lists BOTH Medicare Advantage AND "other health-related plans" (the SOA checkbox that covers HI/HHC), you can present and enroll both products on the same call. HI/HHC are health-related, so MCMG §40.7 (the non-health cross-sell ban — annuities, life, etc.) does not apply. Make sure your SOA template explicitly checks the ancillary box at the start — that\'s what gives you scope for both. (Carrier-specific rules can be stricter; verify against UNL\'s and CPC\'s compliance bulletins.)',
         },
         {
           q: 'Why does my rate change between states?',
