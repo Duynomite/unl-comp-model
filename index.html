@@ -86,6 +86,17 @@
     .unl-journey-sep { color: rgba(255,255,255,0.3); }
     @media (max-width: 640px) { .unl-journey-inner { padding: 0.45rem 1rem; font-size: 0.6rem; } }
     @media print { .unl-journey-bar { display: none !important; } }
+
+    /* ============ UNL NEXT-STEP CTA (shared across all 4 tools) ============ */
+    .unl-next-step { margin: 2.5rem auto 1.5rem; max-width: 56rem; padding: 1.85rem 2rem 2rem; background: linear-gradient(135deg, #2D5A7A 0%, #10202C 100%); color: white; border-radius: 0.85rem; box-shadow: 0 6px 20px rgba(16,32,44,0.14); display: grid; grid-template-columns: 1fr auto; gap: 1.75rem; align-items: center; }
+    .unl-next-step-eyebrow { font-family: "Urbanist", sans-serif; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.18em; color: #3DCEB2; text-transform: uppercase; margin-bottom: 0.55rem; }
+    .unl-next-step h3 { font-family: "Urbanist", sans-serif; font-weight: 700; font-size: 1.4rem; color: white; margin-bottom: 0.45rem; line-height: 1.2; }
+    .unl-next-step p { font-family: "Jost", sans-serif; font-size: 0.95rem; color: rgba(255,255,255,0.85); margin: 0; line-height: 1.55; max-width: 38rem; }
+    .unl-next-step-btn { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.9rem 1.65rem; background: #3DCEB2; color: #10202C; font-family: "Urbanist", sans-serif; font-weight: 700; font-size: 0.92rem; border-radius: 999px; text-decoration: none; transition: all 0.15s; letter-spacing: 0.01em; white-space: nowrap; }
+    .unl-next-step-btn:hover { background: #2db89e; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(61,206,178,0.35); }
+    .unl-next-step-btn svg { width: 1rem; height: 1rem; }
+    @media (max-width: 640px) { .unl-next-step { grid-template-columns: 1fr; padding: 1.4rem 1.4rem 1.55rem; gap: 1.1rem; } .unl-next-step h3 { font-size: 1.15rem; } .unl-next-step-btn { padding: 0.8rem 1.4rem; font-size: 0.85rem; } }
+    @media print { .unl-next-step { display: none !important; } }
   </style>
   <div class="unl-journey-bar">
     <div class="unl-journey-inner">
@@ -1300,12 +1311,25 @@
 
     function Footer() {
       return (
-        <footer className="text-center text-xs text-mid-blue space-y-2 py-6">
-          <p className="max-w-2xl mx-auto leading-relaxed">
-            All figures shown are agent take-home percentages. Final commission is governed by your CPC 1099 agreement and UNL's commission schedule by state. Rates current as of 2026-05-14 — confirm with your CPC contact before quoting customers.
-          </p>
-          <p className="text-soft-blue font-heading font-semibold tracking-wider uppercase text-[10px]">Clear Path Coverage · UNL Ancillary Compensation Model</p>
-        </footer>
+        <>
+          <div className="unl-next-step">
+            <div>
+              <div className="unl-next-step-eyebrow">★ Step 2 of 4 complete</div>
+              <h3>Now master the math tool for live calls.</h3>
+              <p>The Rx Reimbursement Calculator is what you'll have open during every pitch. Plug in your customer's medications, see their recommended plan and net monthly cost in real time.</p>
+            </div>
+            <a href="https://duynomite.github.io/unl-rx-calculator/" target="_blank" rel="noopener" className="unl-next-step-btn">
+              Open the Rx Calculator
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </a>
+          </div>
+          <footer className="text-center text-xs text-mid-blue space-y-2 py-6">
+            <p className="max-w-2xl mx-auto leading-relaxed">
+              All figures shown are agent take-home percentages. Final commission is governed by your CPC 1099 agreement and UNL's commission schedule by state. Rates current as of 2026-05-14 — confirm with your CPC contact before quoting customers.
+            </p>
+            <p className="text-soft-blue font-heading font-semibold tracking-wider uppercase text-[10px]">Clear Path Coverage · UNL Ancillary Compensation Model</p>
+          </footer>
+        </>
       );
     }
 
