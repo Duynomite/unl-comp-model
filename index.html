@@ -202,9 +202,9 @@
             Home Healthcare Shield + Hospital Indemnity Shield. CPC covers your leads. UNL pays the carrier. You sell — full take-home on every sale, every renewal, every year the policy stays in force.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <KpiTile label="Per typical sale" value="$195" sub="$780 average premium · 25% Y1" />
-            <KpiTile label="Annual income range" value="$34K–$200K+" sub="Building to top performer" />
-            <KpiTile label="Renewals every year" value="5%" sub="Of premium, while in force" />
+            <KpiTile label="Year 1 commission" value="25%" sub="Of annual premium · ≈$195 on a typical $780 sale" />
+            <KpiTile label="Annual renewal" value="5%" sub="Every year the policy stays in force" />
+            <KpiTile label="Realistic annual income" value="$34K–$200K+" sub="Building to top performer" />
           </div>
         </section>
       );
@@ -312,6 +312,113 @@
     }
 
     // ============================================================================
+    // HOW IT WORKS — educational block for new agents
+    // ============================================================================
+    function HowItWorks() {
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <h2 className="font-heading font-bold text-2xl sm:text-3xl text-deep-navy mb-1">How the commission works.</h2>
+          <p className="text-mid-blue text-sm mb-6">The basics, plain English. Take 60 seconds with this before the calculators below.</p>
+
+          <div className="space-y-5">
+
+            {/* The percentages */}
+            <div className="bg-accent/10 rounded-xl p-5 border-2 border-accent/40">
+              <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-widest mb-3">The two numbers to remember</div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="font-heading font-bold text-deep-navy text-3xl mb-1">25%</div>
+                  <div className="text-sm text-text leading-relaxed">
+                    <strong>Of annual premium</strong> = your Year 1 commission.<br/>
+                    <span className="text-mid-blue">On a typical $780/yr policy ($65/mo), that's <strong className="text-deep-navy tabular-nums">$195</strong> per policy that places and reaches Month 12.</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="font-heading font-bold text-deep-navy text-3xl mb-1">5%</div>
+                  <div className="text-sm text-text leading-relaxed">
+                    <strong>Of annual premium</strong> = your renewal, paid every year the policy stays in force.<br/>
+                    <span className="text-mid-blue">On the same $780 policy, that's <strong className="text-deep-navy tabular-nums">$39/yr</strong> for as long as the customer keeps it.</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-mid-blue mt-3 pt-3 border-t border-accent/30">
+                The 25% and 5% are <strong>percentages of the annual premium</strong> the customer pays — not flat dollar amounts. A bigger premium = a bigger commission. The dollar examples in this tool use $780 because that's the typical UNL ancillary premium. A few states (CO, DE, SD on HHC; CO, MN, SD, plus a mid-tier group on HI) pay a slightly lower percentage — see the rate table below.
+              </div>
+            </div>
+
+            {/* Payment structure */}
+            <div className="bg-light-cyan/40 rounded-xl p-5">
+              <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-widest mb-3">How and when you actually get paid</div>
+              <div className="space-y-3 text-sm text-text">
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-accent text-deep-navy font-heading font-bold flex items-center justify-center text-sm">1</div>
+                  <div>
+                    <strong>75% of your Year 1 is advanced upfront</strong> — paid in one lump the month the policy takes effect and UNL pays CPC. On a $780 sale, that's <strong className="tabular-nums">$146.25</strong> hitting your account 1–2 months after you submit the application.
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-mid-blue text-white font-heading font-bold flex items-center justify-center text-sm">2</div>
+                  <div>
+                    <strong>The remaining 25% pays as monthly residuals</strong> across months 10, 11, and 12 — about <strong className="tabular-nums">$16.25/month</strong> on a $780 sale.
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-secondary text-white font-heading font-bold flex items-center justify-center text-sm">3</div>
+                  <div>
+                    <strong>Starting Year 2, you collect 5% renewal every year</strong> the policy stays active — paid on the policy anniversary, for life of the policy.
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-red-200 text-red-900 font-heading font-bold flex items-center justify-center text-sm">!</div>
+                  <div className="text-mid-blue">
+                    <strong className="text-red-700">If the policy cancels in months 1–9</strong>, you owe a pro-rata chargeback on the advance. <strong>After month 9 you're safe</strong> — the advance is fully earned. See the cancellation section below for exact numbers.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* The products */}
+            <div className="bg-white rounded-xl p-5 border border-light-cyan">
+              <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-widest mb-3">The two products you'll sell</div>
+              <div className="grid sm:grid-cols-2 gap-5 text-sm">
+                <div>
+                  <div className="font-heading font-bold text-deep-navy mb-1">HHC Shield</div>
+                  <div className="text-xs text-mid-blue mb-2">Short-Term Home Healthcare · ages 55–85</div>
+                  <div className="text-text leading-relaxed">Pays the customer a daily benefit when they need in-home care after a hospital stay — physical therapy, recovery support, help with bathing and daily living. Same commission rate at every eligible age.</div>
+                </div>
+                <div>
+                  <div className="font-heading font-bold text-deep-navy mb-1">HI Shield</div>
+                  <div className="text-xs text-mid-blue mb-2">Hospital Indemnity · ages 50–85</div>
+                  <div className="text-text leading-relaxed">Pays the customer a daily cash benefit for each day of hospital confinement. Commission rate drops slightly at age 80, and renewals split into Years 2–10 (higher) and Year 11+ (lower) tiers.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* What new agents always ask */}
+            <div className="bg-deep-navy text-white rounded-xl p-5">
+              <div className="text-xs uppercase font-heading font-semibold text-accent tracking-widest mb-3">What new agents always ask</div>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="text-accent font-heading font-semibold mb-0.5">Do I pay for my own leads?</div>
+                  <div className="text-white/80">No. CPC covers 100% of UNL ancillary lead costs. The 25% and 5% you see are your full take-home — no deduction.</div>
+                </div>
+                <div>
+                  <div className="text-accent font-heading font-semibold mb-0.5">Is "$195 per sale" guaranteed?</div>
+                  <div className="text-white/80">No — that's a typical example at $780 premium. Higher premiums earn more; states with adjusted schedules earn slightly less. Use the per-sale calculator below to see your exact number for any scenario.</div>
+                </div>
+                <div>
+                  <div className="text-accent font-heading font-semibold mb-0.5">Can I cross-sell Medicare Advantage on an ancillary call?</div>
+                  <div className="text-white/80">No — CMS rules require a separate inbound call from the customer before any MA discussion. See the FAQ for the full second-call rule.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      );
+    }
+
+    // ============================================================================
     // CAREER CALCULATOR — interactive year-level + 5-year stacking
     // ============================================================================
     function PctSlider({ label, value, onChange, min, max, hint }) {
@@ -361,7 +468,14 @@
         <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
           <div className="mb-5">
             <h2 className="font-heading font-bold text-2xl sm:text-3xl text-deep-navy mb-1">What you'd earn at your pace.</h2>
-            <p className="text-mid-blue text-sm">Move the sliders to model your activity and assumptions. Numbers update live.</p>
+            <p className="text-mid-blue text-sm">Model your own activity and assumptions across a 5-year horizon. Numbers update live.</p>
+          </div>
+
+          <div className="mb-6 bg-light-cyan/40 rounded-xl p-4 text-xs text-mid-blue leading-relaxed space-y-2">
+            <div><strong className="text-secondary">How to read this:</strong></div>
+            <div><strong>"Submit"</strong> = one ancillary application you sent to UNL. Not every submit becomes a paid policy — that's what the <strong>placement rate</strong> slider models (% that take effect).</div>
+            <div><strong>Year 1 retention (M12)</strong> = % of placed policies that survive to month 12. Policies that lapse before M12 still net ~50% of their commission on average (advance was paid, partial chargeback applied). After M12, your Year 1 is fully earned.</div>
+            <div><strong>Renewals retention (Y2+)</strong> = year-over-year retention after Year 1. Renewals only pay on policies that survive past M12 — each year you stay in the seat, the renewal stream from prior cohorts compounds, even if you stop submitting new business.</div>
           </div>
 
           <div className="grid lg:grid-cols-[1fr_1.3fr] gap-6 sm:gap-8 items-start">
@@ -409,6 +523,11 @@
                     <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${crossSellOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </span>
                 </button>
+                {!crossSellOn && (
+                  <div className="mt-3 text-xs text-mid-blue bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                    ⚠ <strong>Heads up:</strong> You can't pivot an ancillary call into a Medicare Advantage conversation — CMS requires a separate inbound call from the customer first. Toggle on to see the math; FAQ has the full rule.
+                  </div>
+                )}
 
                 {crossSellOn && (
                   <div className="mt-4 space-y-4 pl-3 border-l-2 border-accent">
@@ -497,12 +616,6 @@
             </div>
           </div>
 
-          <div className="mt-5 text-xs text-mid-blue bg-light-cyan/40 rounded-lg p-4 leading-relaxed space-y-2">
-            <div><strong className="text-secondary">The math, explained:</strong></div>
-            <div><strong>"Submit"</strong> = one ancillary application you sent to UNL. Not every submit becomes a policy — that's what the placement rate slider models.</div>
-            <div><strong>How each submit earns:</strong> submits × placement × your gross commission, with a haircut for policies that lapse before month 12. Lapsed policies still net ~50% of their commission on average (advance was paid, partial chargeback applied).</div>
-            <div><strong>Renewals</strong> only pay on policies that survive past Year 1 (month 12). Each year you stay in the seat, the renewal stream from prior cohorts compounds — even if you stop submitting new business.</div>
-          </div>
         </section>
       );
     }
@@ -1104,11 +1217,12 @@
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
           <Hero />
           <CareerOutlook />
-          <CareerCalculator />
+          <HowItWorks />
           <Calculator formState={formState} setFormState={setFormState} rate={rate} />
           <PaymentTimeline formState={formState} rate={rate} />
           <ChargebackScenario formState={formState} rate={rate} />
           <RateTables />
+          <CareerCalculator />
           <FAQ />
           <Footer />
         </div>
