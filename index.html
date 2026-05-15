@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNL Ancillary Comp Model — Clear Path Coverage</title>
+
+  <!--
+    UNL Ancillary Comp Model — agent-facing compensation calculator for CPC agents.
+
+    AGENT-ONLY DIRECTIVE (per Connor 2026-05-14):
+    This tool must NEVER display agency commission rates, agency retained spread,
+    or any agency-side compensation values. The RATES constant below contains
+    ONLY computed agent-side rates. Internal keys (standard / adjusted / adjustedMid /
+    adjustedLow) are not user-visible labels — the UI surfaces literal state lists.
+
+    ACCURACY DIRECTIVE: Agent rates derived from the UNL state commission grid
+    (received 2026-05-14) via two fixed proportions:
+      - Year 1 split: 25 / 75 = 33.33% of carrier Y1 rate
+      - Renewal split: 5 / 13 = 38.46% of carrier renewal rate
+    Anchor: HHC standard states → 25.00% Y1 / 5.00% renewal at $1,000 AP.
+  -->
+
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-accent: #3DCEB2;
+      --color-secondary: #2D5A7A;
+      --color-text: #34252F;
+      --color-deep-navy: #10202C;
+      --color-light-cyan: #D8E6E3;
+      --color-mid-blue: #4B7797;
+      --color-soft-blue: #A7B8C5;
+      --font-heading: "Urbanist", sans-serif;
+      --font-body: "Jost", sans-serif;
+    }
+  </style>
+  <style>
+    body { font-family: "Jost", sans-serif; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      height: 6px; border-radius: 3px;
+      background: #D8E6E3; outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #2D5A7A; cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #2D5A7A; cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    input[type=range]:disabled::-webkit-slider-thumb { background: #A7B8C5; cursor: not-allowed; }
+    input[type=range]:disabled { opacity: 0.5; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    .chevron { transition: transform 0.2s ease; }
+    details[open] .chevron { transform: rotate(45deg); }
+  </style>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-light-cyan/30 text-text font-body min-h-screen">
+  <noscript>
+    <div style="padding:2rem;font-family:sans-serif;max-width:600px;margin:2rem auto;border:1px solid #ccc;border-radius:8px;">
+      <h1>JavaScript required</h1>
+      <p>This tool requires JavaScript and an internet connection. Please enable JavaScript or contact CPC for help.</p>
+    </div>
+  </noscript>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // ============================================================================
+    // DATA LAYER — agent-side values only. See AGENT-ONLY DIRECTIVE at top of file.
+    // ============================================================================
+    const RATES = {
+      HHC: {
+        standard: {
+          states: ['AL','AR','AZ','GA','IA','ID','IL','IN','KS','KY','LA','MI','MO','MS','NC','NE','NV','OH','OK','PA','SC','TN','TX','WV','WY'],
+          y1: 0.2500,
+          renewal: 0.0500,
+        },
+        adjusted: {
+          states: ['CO','DE','SD'],
+          y1: 0.2167,
+          renewal: 0.0308,
+        },
+        ageMin: 55,
+        ageMax: 85,
+      },
+      HI: {
+        standard: {
+          states: ['AL','AR','FL','GA','IA','ID','IL','KS','LA','MO','MS','NC','NE','NV','OH','OK','PA','SC','TN','TX','UT','WI','WV','WY'],
+          y1Young: 0.2500, y1Senior: 0.2167,
+          renewalY2to10: 0.0577, renewalY11: 0.0308,
+        },
+        adjustedMid: {
+          states: ['AZ','DE','IN','KY','MD','MI','ND','VA'],
+          y1Young: 0.2333, y1Senior: 0.2000,
+          renewalY2to10: 0.0385, renewalY11: 0.0231,
+        },
+        adjustedLow: {
+          states: ['CO','MN','SD'],
+          y1Young: 0.2333, y1Senior: 0.2000,
+          renewalY2to10: 0.0231, renewalY11: 0.0115,
+        },
+        ageMin: 50,
+        ageMax: 85,
+        seniorAge: 80,
+      },
+      paymentSplit: { advancePct: 0.75, residualMonths: [10, 11, 12] },
+      chargeback: { advanceWindowMonths: 9 },
+    };
+
+    const STATES = [
+      ['AL','Alabama'], ['AK','Alaska'], ['AZ','Arizona'], ['AR','Arkansas'], ['CA','California'],
+      ['CO','Colorado'], ['CT','Connecticut'], ['DE','Delaware'], ['DC','District of Columbia'],
+      ['FL','Florida'], ['GA','Georgia'], ['HI','Hawaii'], ['ID','Idaho'], ['IL','Illinois'],
+      ['IN','Indiana'], ['IA','Iowa'], ['KS','Kansas'], ['KY','Kentucky'], ['LA','Louisiana'],
+      ['ME','Maine'], ['MD','Maryland'], ['MA','Massachusetts'], ['MI','Michigan'], ['MN','Minnesota'],
+      ['MS','Mississippi'], ['MO','Missouri'], ['MT','Montana'], ['NE','Nebraska'], ['NV','Nevada'],
+      ['NH','New Hampshire'], ['NJ','New Jersey'], ['NM','New Mexico'], ['NY','New York'],
+      ['NC','North Carolina'], ['ND','North Dakota'], ['OH','Ohio'], ['OK','Oklahoma'], ['OR','Oregon'],
+      ['PA','Pennsylvania'], ['RI','Rhode Island'], ['SC','South Carolina'], ['SD','South Dakota'],
+      ['TN','Tennessee'], ['TX','Texas'], ['UT','Utah'], ['VT','Vermont'], ['VA','Virginia'],
+      ['WA','Washington'], ['WV','West Virginia'], ['WI','Wisconsin'], ['WY','Wyoming'],
+    ].sort((a, b) => a[1].localeCompare(b[1]));
+
+    function lookupRate(product, stateCode, age) {
+      if (product === 'HHC') {
+        if (age < RATES.HHC.ageMin || age > RATES.HHC.ageMax) {
+          return { eligible: false, reason: 'age', ageRange: `${RATES.HHC.ageMin}–${RATES.HHC.ageMax}` };
+        }
+        if (RATES.HHC.standard.states.includes(stateCode)) {
+          return { eligible: true, y1: RATES.HHC.standard.y1, renewal: RATES.HHC.standard.renewal };
+        }
+        if (RATES.HHC.adjusted.states.includes(stateCode)) {
+          return { eligible: true, y1: RATES.HHC.adjusted.y1, renewal: RATES.HHC.adjusted.renewal };
+        }
+        return { eligible: false, reason: 'state' };
+      }
+      if (product === 'HI') {
+        if (age < RATES.HI.ageMin || age > RATES.HI.ageMax) {
+          return { eligible: false, reason: 'age', ageRange: `${RATES.HI.ageMin}–${RATES.HI.ageMax}` };
+        }
+        const isSenior = age >= RATES.HI.seniorAge;
+        const tier = [RATES.HI.standard, RATES.HI.adjustedMid, RATES.HI.adjustedLow]
+          .find(c => c.states.includes(stateCode));
+        if (!tier) return { eligible: false, reason: 'state' };
+        return {
+          eligible: true,
+          y1: isSenior ? tier.y1Senior : tier.y1Young,
+          renewalY2to10: tier.renewalY2to10,
+          renewalY11: tier.renewalY11,
+          isSenior,
+        };
+      }
+    }
+
+    // ============================================================================
+    // FORMAT HELPERS
+    // ============================================================================
+    const fmt$ = (v) => '$' + (v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtPct = (v) => (v * 100).toFixed(2) + '%';
+
+    // ============================================================================
+    // COMPONENTS
+    // ============================================================================
+
+    function KpiTile({ label, value, sub }) {
+      return (
+        <div className="bg-white/10 backdrop-blur rounded-xl p-5 border border-white/10">
+          <div className="text-white/70 text-xs uppercase tracking-widest mb-1.5 font-heading font-semibold">{label}</div>
+          <div className="text-accent font-heading font-bold text-3xl sm:text-4xl tabular-nums">{value}</div>
+          {sub && <div className="text-white/60 text-xs mt-1.5">{sub}</div>}
+        </div>
+      );
+    }
+
+    function Hero() {
+      return (
+        <section className="bg-gradient-to-br from-secondary to-deep-navy text-white rounded-2xl p-8 sm:p-12 shadow-xl">
+          <div className="text-accent text-xs uppercase tracking-widest font-heading font-semibold mb-3">UNL Ancillary — Agent Compensation</div>
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl leading-tight mb-3">
+            Build a six-figure career selling ancillary.
+          </h1>
+          <p className="text-white/80 text-base sm:text-lg max-w-2xl mb-8">
+            Home Healthcare Shield + Hospital Indemnity Shield. CPC covers your leads. UNL pays the carrier. You sell — full take-home on every sale, every renewal, every year the policy stays in force.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <KpiTile label="Per typical sale" value="$195" sub="$780 average premium · 25% Y1" />
+            <KpiTile label="Annual income range" value="$34K–$200K+" sub="Building to top performer" />
+            <KpiTile label="Renewals every year" value="5%" sub="Of premium, while in force" />
+          </div>
+        </section>
+      );
+    }
+
+    // ============================================================================
+    // CAREER MATH — typical UNL ancillary sale
+    // Source: Connor 2026-05-14. $780 avg annual premium ($65/mo). Standard-state
+    // rates (HHC: 25% Y1 / 5% renewal). 20 workdays/mo × 12 = 240 submits per
+    // sale/day. Option B for lapse math: non-M12 policies net ~50% of gross
+    // (advance paid, partial chargeback averaged across Mo 1-11 lapse timing).
+    // ============================================================================
+    const CAREER = {
+      typicalAP: 780,
+      y1Rate: 0.25,                // Agent earns 25% of AP in standard-rate states
+      renewalRate: 0.05,           // Agent earns 5% of AP renewal in standard-rate states
+      workdaysPerMonth: 20,
+      monthsPerYear: 12,
+      partialEarningFactor: 0.5,   // Option B: lapsed non-M12 policies net half on average
+    };
+
+    function perSaleGross(ap) { return ap * CAREER.y1Rate; }
+    function perSaleRenewal(ap) { return ap * CAREER.renewalRate; }
+
+    // Effective Y1 per submit at given placement + M12 retention (Option B)
+    // = placement × gross × (M12 × 1.0 + (1 - M12) × 0.5)
+    // = placement × gross × (0.5 + 0.5 × M12)
+    function effectivePerSubmit(ap, placement, m12) {
+      return placement * perSaleGross(ap) * (0.5 + 0.5 * m12);
+    }
+
+    // M12 survivors per cohort (these generate renewals)
+    function m12SurvivorsPerYear(submitsPerYear, placement, m12) {
+      return submitsPerYear * placement * m12;
+    }
+
+    // 5-year income projection
+    // For year y: renewal income = sum over prior cohorts c of m12Surv × y2Ret^(y-c-1)
+    function projectFiveYears(submitsPerYear, ap, placement, m12, y2Ret) {
+      const y1Annual = submitsPerYear * effectivePerSubmit(ap, placement, m12);
+      const survPerCohort = m12SurvivorsPerYear(submitsPerYear, placement, m12);
+      const renewalPer = perSaleRenewal(ap);
+      const years = [];
+      for (let y = 1; y <= 5; y++) {
+        let renewal = 0;
+        for (let c = 1; c < y; c++) {
+          // Cohort sold in year c, contributing renewal in year y
+          renewal += survPerCohort * Math.pow(y2Ret, y - c - 1) * renewalPer;
+        }
+        years.push({ year: y, y1: y1Annual, renewal, total: y1Annual + renewal });
+      }
+      return years;
+    }
+
+    // ============================================================================
+    // CAREER OUTLOOK — volume tier reference card
+    // ============================================================================
+    const TIERS = [
+      { name: 'Building', salesPerDay: 1, blurb: 'Learning the script, working leads part-time' },
+      { name: 'Steady', salesPerDay: 2, blurb: 'Consistent daily volume, full-time pace' },
+      { name: 'Strong', salesPerDay: 3, blurb: 'Practiced closer, full pipeline' },
+      { name: 'Top performer', salesPerDay: 5, salesRange: '4–6', blurb: 'Specialist, optimized funnel' },
+    ];
+
+    function CareerOutlook() {
+      // Use default 80/80/85 assumptions for the tier display
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <div className="mb-5">
+            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-deep-navy mb-1">Your career at a glance.</h2>
+            <p className="text-mid-blue text-sm">Realistic annual income at different activity levels. Assumes typical $780 premium, 80% placement rate (applications that take effect), 80% Year 1 retention (policies still active at month 12), 85% renewals retention thereafter.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {TIERS.map((t) => {
+              const submitsYr = t.salesPerDay * CAREER.workdaysPerMonth * CAREER.monthsPerYear;
+              const projection = projectFiveYears(submitsYr, CAREER.typicalAP, 0.80, 0.80, 0.85);
+              const y1 = projection[0].total;
+              const y5 = projection[4].total;
+              const isTop = t.name === 'Top performer';
+              return (
+                <div key={t.name}
+                  className={`rounded-xl p-5 border-2 ${isTop ? 'bg-deep-navy text-white border-accent' : 'bg-light-cyan/30 border-light-cyan'}`}>
+                  <div className={`text-xs uppercase tracking-widest font-heading font-semibold mb-2 ${isTop ? 'text-accent' : 'text-secondary'}`}>{t.name}</div>
+                  <div className={`text-2xl font-heading font-bold tabular-nums ${isTop ? 'text-white' : 'text-deep-navy'}`}>
+                    {t.salesRange ? `${t.salesRange}/day` : `${t.salesPerDay}/day`}
+                  </div>
+                  <div className={`text-xs mt-1 ${isTop ? 'text-soft-blue' : 'text-mid-blue'}`}>{t.blurb}</div>
+                  <div className={`mt-4 pt-4 border-t ${isTop ? 'border-white/20' : 'border-light-cyan'}`}>
+                    <div className={`text-xs uppercase tracking-wider ${isTop ? 'text-soft-blue' : 'text-mid-blue'}`}>Year 1</div>
+                    <div className={`font-heading font-bold text-xl tabular-nums ${isTop ? 'text-accent' : 'text-deep-navy'}`}>${Math.round(y1).toLocaleString()}</div>
+                  </div>
+                  <div className="mt-3">
+                    <div className={`text-xs uppercase tracking-wider ${isTop ? 'text-soft-blue' : 'text-mid-blue'}`}>Year 5 total</div>
+                    <div className={`font-heading font-bold text-xl tabular-nums ${isTop ? 'text-accent' : 'text-deep-navy'}`}>${Math.round(y5).toLocaleString()}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 text-xs text-mid-blue bg-light-cyan/40 rounded-lg p-3">
+            <strong className="text-secondary">How to read this:</strong> Both numbers are <em>annual income</em>, not cumulative totals. <strong>Year 1</strong> is what you earn in your first full year of selling (new commissions only). <strong>Year 5</strong> is what you earn in year five — new commissions that year <em>plus</em> renewals from the four prior years that are still in force. Slide the calculator below to model your own pace.
+          </div>
+        </section>
+      );
+    }
+
+    // ============================================================================
+    // CAREER CALCULATOR — interactive year-level + 5-year stacking
+    // ============================================================================
+    function PctSlider({ label, value, onChange, min, max, hint }) {
+      return (
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">{label}</label>
+            <span className="font-heading font-semibold text-2xl text-deep-navy tabular-nums">{Math.round(value * 100)}%</span>
+          </div>
+          <input type="range" className="w-full" min={min} max={max} step={1}
+            value={Math.round(value * 100)}
+            onChange={e => onChange(parseInt(e.target.value) / 100)} />
+          <div className="flex justify-between text-xs text-soft-blue mt-1">
+            <span>{min}%</span><span>{max}%</span>
+          </div>
+          {hint && <div className="text-xs text-soft-blue mt-1">{hint}</div>}
+        </div>
+      );
+    }
+
+    function CareerCalculator() {
+      const [salesPerDay, setSalesPerDay] = useState(2);
+      const [ap, setAp] = useState(780);
+      const [placement, setPlacement] = useState(0.80);
+      const [m12, setM12] = useState(0.80);
+      const [y2Ret, setY2Ret] = useState(0.85);
+      const [crossSellOn, setCrossSellOn] = useState(false);
+      const [crossSellRate, setCrossSellRate] = useState(0.15);
+      const [maRate, setMaRate] = useState(400);
+
+      const submitsPerYear = salesPerDay * CAREER.workdaysPerMonth * CAREER.monthsPerYear;
+      const baseProjection = projectFiveYears(submitsPerYear, ap, placement, m12, y2Ret);
+      const maIncomeAnnual = crossSellOn ? submitsPerYear * crossSellRate * maRate : 0;
+      const maSalesAnnual = crossSellOn ? Math.round(submitsPerYear * crossSellRate) : 0;
+      const projection = baseProjection.map(p => ({ ...p, ma: maIncomeAnnual, total: p.total + maIncomeAnnual }));
+      const y1Ancillary = projection[0].y1;
+      const y1Annual = projection[0].total;
+      const y1Monthly = y1Annual / 12;
+      const y5Total = projection[4].total;
+      const y5Renewal = projection[4].renewal;
+      const effPerSubmit = effectivePerSubmit(ap, placement, m12);
+      const grossPerSale = perSaleGross(ap);
+      const fmt = (v) => '$' + Math.round(v).toLocaleString();
+      const maxBar = Math.max(...projection.map(p => p.total));
+
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <div className="mb-5">
+            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-deep-navy mb-1">What you'd earn at your pace.</h2>
+            <p className="text-mid-blue text-sm">Move the sliders to model your activity and assumptions. Numbers update live.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-[1fr_1.3fr] gap-6 sm:gap-8 items-start">
+            {/* Sliders */}
+            <div className="space-y-5 min-w-0">
+              <div>
+                <div className="flex items-baseline justify-between mb-2 gap-2">
+                  <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">Sales per day</label>
+                  <span className="font-heading font-semibold text-2xl text-deep-navy tabular-nums">{salesPerDay}</span>
+                </div>
+                <input type="range" className="w-full" min={1} max={7} step={1} value={salesPerDay}
+                  onChange={e => setSalesPerDay(parseInt(e.target.value))} />
+                <div className="flex justify-between text-xs text-soft-blue mt-1 gap-2">
+                  <span>1</span><span className="text-center">4–6 · top performer</span><span>7</span>
+                </div>
+                <div className="text-xs text-soft-blue mt-1">= {submitsPerYear.toLocaleString()} submitted applications per year (20 workdays × 12 months)</div>
+              </div>
+              <div>
+                <div className="flex items-baseline justify-between mb-2 gap-2">
+                  <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">Average annual premium</label>
+                  <span className="font-heading font-semibold text-2xl text-deep-navy tabular-nums">${ap.toLocaleString()}</span>
+                </div>
+                <input type="range" className="w-full" min={300} max={1500} step={20} value={ap}
+                  onChange={e => setAp(parseInt(e.target.value))} />
+                <div className="flex justify-between text-xs text-soft-blue mt-1 gap-2">
+                  <span>$300</span><span className="text-center">$780 typical</span><span>$1,500</span>
+                </div>
+                <div className="text-xs text-soft-blue mt-1">≈ ${(ap / 12).toFixed(0)}/month · You earn {fmt(grossPerSale)} per policy that fully sticks (25% of premium in standard-rate states)</div>
+              </div>
+              <PctSlider label="Placement rate" value={placement} onChange={setPlacement}
+                min={60} max={95} hint="% of submitted applications that take effect as active policies" />
+              <PctSlider label="Year 1 retention (Month 12)" value={m12} onChange={setM12}
+                min={60} max={95} hint="% of placed policies that stay active through month 12 — known as M12 retention" />
+              <PctSlider label="Renewals retention (Y2+)" value={y2Ret} onChange={setY2Ret}
+                min={60} max={95} hint="Year-over-year retention after a policy completes Year 1" />
+
+              <div className="pt-5 border-t border-light-cyan">
+                <button type="button" onClick={() => setCrossSellOn(!crossSellOn)}
+                  className="w-full flex items-center justify-between gap-2 group">
+                  <div className="text-left">
+                    <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">Add MA cross-sell?</div>
+                    <div className="text-xs text-soft-blue mt-1">Most ancillary agents cross-sell some MA naturally</div>
+                  </div>
+                  <span className={`flex-shrink-0 relative inline-flex h-7 w-12 rounded-full transition-colors ${crossSellOn ? 'bg-accent' : 'bg-light-cyan'}`}>
+                    <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${crossSellOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </span>
+                </button>
+
+                {crossSellOn && (
+                  <div className="mt-4 space-y-4 pl-3 border-l-2 border-accent">
+                    <PctSlider label="MA cross-sell rate" value={crossSellRate} onChange={setCrossSellRate}
+                      min={0} max={40} hint={`% of ancillary sales that also become a paid MA Month-4 commission · ${maSalesAnnual} MA/yr at this rate`} />
+                    <div>
+                      <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider block mb-2">Your MA commission per policy</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[375, 400, 425, 450].map(r => (
+                          <button key={r} type="button" onClick={() => setMaRate(r)}
+                            className={`py-2 rounded-lg font-heading font-semibold text-sm transition-colors ${
+                              maRate === r
+                                ? 'bg-secondary text-white'
+                                : 'bg-light-cyan/40 text-secondary hover:bg-light-cyan'
+                            }`}>
+                            ${r}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-xs text-soft-blue mt-2">CPC tier rate per Month-4 retained MA policy — see your 1099 agreement for your current tier.</div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 leading-relaxed">
+                      <div className="font-heading font-semibold mb-1">⚠ CMS compliance — second-call rule</div>
+                      <div>You <strong>cannot</strong> pivot an ancillary call into a Medicare Advantage discussion on the same call (42 CFR §422.2264). The customer must <strong>call you back on a separate inbound call</strong>, where you obtain a fresh Scope of Appointment before any MA talk. The cross-sell rate above assumes you're doing this compliantly — expect drop-off between Call 1 and Call 2, so a "15%" cross-sell typically means closing ~6–15% of your ancillary customers on MA via callback. See the FAQ for details.</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Outputs */}
+            <div className="bg-deep-navy text-white rounded-2xl p-5 sm:p-8 space-y-5 min-w-0">
+              <div>
+                <div className="text-soft-blue text-xs uppercase font-heading font-semibold tracking-widest mb-2">Year 1 take-home</div>
+                <div className="text-accent font-heading font-bold text-4xl sm:text-5xl lg:text-6xl tabular-nums leading-none break-all">{fmt(y1Annual)}</div>
+                <div className="text-soft-blue text-sm mt-2">= {fmt(y1Monthly)}/month avg · ${effPerSubmit.toFixed(2)}/ancillary submit</div>
+                {crossSellOn && (
+                  <div className="text-soft-blue text-xs mt-2 pt-2 border-t border-white/10">
+                    Ancillary: <span className="text-white font-heading font-semibold tabular-nums">{fmt(y1Ancillary)}</span>
+                    {' · '}
+                    MA cross-sell: <span className="text-white font-heading font-semibold tabular-nums">{fmt(maIncomeAnnual)}</span>
+                    <span className="text-soft-blue/70"> ({maSalesAnnual} MA × ${maRate})</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-soft-blue text-xs uppercase font-heading font-semibold tracking-widest mb-2">Year 5 annual income (renewals stacked)</div>
+                <div className="text-accent font-heading font-bold text-3xl sm:text-4xl lg:text-5xl tabular-nums leading-none break-all">{fmt(y5Total)}</div>
+                <div className="text-soft-blue text-sm mt-2">
+                  What you'd earn <em>in</em> year 5 — not the 5-year total. Renewals from years 1–4 are still paying in year 5.
+                </div>
+                <div className="text-soft-blue text-sm mt-1">
+                  Renewal stream alone: {fmt(y5Renewal)}/yr
+                  {crossSellOn && <span> · MA cross-sell: {fmt(maIncomeAnnual)}/yr</span>}
+                </div>
+              </div>
+
+              {/* 5-year bar chart */}
+              <div>
+                <div className="text-soft-blue text-xs uppercase font-heading font-semibold tracking-widest mb-3">Income build, Year 1 → Year 5</div>
+                <div className="space-y-2">
+                  {projection.map(p => {
+                    const newPct = (p.y1 / maxBar) * 100;
+                    const renPct = (p.renewal / maxBar) * 100;
+                    const maPct = ((p.ma || 0) / maxBar) * 100;
+                    return (
+                      <div key={p.year} className="flex items-center gap-2">
+                        <div className="text-xs text-soft-blue font-heading w-12 flex-shrink-0">Y{p.year}</div>
+                        <div className="flex-1 h-8 bg-white/5 rounded relative overflow-hidden flex">
+                          <div className="bg-accent h-full" style={{ width: `${newPct}%` }} title={`New Y1: ${fmt(p.y1)}`} />
+                          <div className="bg-mid-blue h-full" style={{ width: `${renPct}%` }} title={`Renewals: ${fmt(p.renewal)}`} />
+                          {crossSellOn && <div className="bg-soft-blue h-full" style={{ width: `${maPct}%` }} title={`MA cross-sell: ${fmt(p.ma)}`} />}
+                        </div>
+                        <div className="text-xs text-white font-heading font-semibold tabular-nums w-20 text-right flex-shrink-0">{fmt(p.total)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-soft-blue">
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-accent rounded"></span> Ancillary Y1</div>
+                  <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-mid-blue rounded"></span> Ancillary renewals</div>
+                  {crossSellOn && <div className="flex items-center gap-1.5"><span className="w-3 h-3 bg-soft-blue rounded"></span> MA cross-sell</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 text-xs text-mid-blue bg-light-cyan/40 rounded-lg p-4 leading-relaxed space-y-2">
+            <div><strong className="text-secondary">The math, explained:</strong></div>
+            <div><strong>"Submit"</strong> = one ancillary application you sent to UNL. Not every submit becomes a policy — that's what the placement rate slider models.</div>
+            <div><strong>How each submit earns:</strong> submits × placement × your gross commission, with a haircut for policies that lapse before month 12. Lapsed policies still net ~50% of their commission on average (advance was paid, partial chargeback applied).</div>
+            <div><strong>Renewals</strong> only pay on policies that survive past Year 1 (month 12). Each year you stay in the seat, the renewal stream from prior cohorts compounds — even if you stop submitting new business.</div>
+          </div>
+        </section>
+      );
+    }
+
+    function ProductToggle({ value, onChange }) {
+      const opts = [
+        { id: 'HHC', label: 'Home Healthcare', sub: 'HHC Shield' },
+        { id: 'HI', label: 'Hospital Indemnity', sub: 'HI Shield' },
+      ];
+      return (
+        <div className="flex flex-col sm:flex-row rounded-xl overflow-hidden border-2 border-light-cyan bg-white">
+          {opts.map(o => (
+            <button key={o.id} type="button"
+              onClick={() => onChange(o.id)}
+              className={`flex-1 py-3 px-4 text-center transition-colors min-w-0 ${
+                value === o.id
+                  ? 'bg-accent text-deep-navy'
+                  : 'bg-white text-secondary hover:bg-light-cyan/40'
+              }`}>
+              <div className="font-heading font-semibold text-base truncate">{o.label}</div>
+              <div className={`text-xs truncate ${value === o.id ? 'text-deep-navy/70' : 'text-soft-blue'}`}>{o.sub}</div>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    function StatePicker({ value, onChange }) {
+      return (
+        <label className="block">
+          <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider mb-2">Customer's state</div>
+          <select value={value} onChange={e => onChange(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border-2 border-light-cyan bg-white text-text font-body text-base focus:outline-none focus:border-accent">
+            {STATES.map(([code, name]) => (
+              <option key={code} value={code}>{name} ({code})</option>
+            ))}
+          </select>
+        </label>
+      );
+    }
+
+    function AgeControl({ value, onChange, min, max, disabled }) {
+      return (
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">Customer age</label>
+            <span className={`font-heading font-semibold text-2xl tabular-nums ${disabled ? 'text-soft-blue' : 'text-deep-navy'}`}>{value}</span>
+          </div>
+          <input type="range" className="w-full" min={min} max={max} step={1} value={value}
+            disabled={disabled}
+            onChange={e => onChange(parseInt(e.target.value))} />
+          <div className="flex justify-between text-xs text-soft-blue mt-1">
+            <span>{min}</span><span>{max}</span>
+          </div>
+          {disabled && <div className="text-xs text-soft-blue mt-1 italic">HHC Shield pays the same rate at every eligible age — your commission is the same whether the customer is 55 or 85.</div>}
+          {!disabled && <div className="text-xs text-soft-blue mt-1">HI Shield rate steps down at age 80 — younger customers pay a higher Year 1 commission.</div>}
+        </div>
+      );
+    }
+
+    function ApInput({ value, onChange }) {
+      const bump = (delta) => onChange(Math.max(0, value + delta));
+      return (
+        <div>
+          <label className="block text-xs uppercase font-heading font-semibold text-secondary tracking-wider mb-2">Annual premium</label>
+          <div className="flex items-stretch rounded-xl border-2 border-light-cyan bg-white overflow-hidden">
+            <button type="button" onClick={() => bump(-100)}
+              className="px-4 bg-light-cyan/50 hover:bg-light-cyan text-secondary font-heading font-semibold text-xl">−</button>
+            <div className="flex-1 flex items-center px-3 min-w-0">
+              <span className="text-deep-navy font-heading font-semibold text-lg mr-1">$</span>
+              <input type="number" value={value} min={0} step={50}
+                onChange={e => onChange(Math.max(0, parseInt(e.target.value) || 0))}
+                className="flex-1 min-w-0 py-3 bg-transparent font-heading font-semibold text-2xl text-deep-navy tabular-nums focus:outline-none" />
+            </div>
+            <button type="button" onClick={() => bump(100)}
+              className="px-4 bg-light-cyan/50 hover:bg-light-cyan text-secondary font-heading font-semibold text-xl">+</button>
+          </div>
+          <div className="text-xs text-soft-blue mt-1">Typical UNL ancillary premiums: $400 – $1,000 / yr.</div>
+        </div>
+      );
+    }
+
+    function CalcOutput({ rate, ap, product }) {
+      if (!rate.eligible) {
+        const msg = rate.reason === 'state'
+          ? 'This product is not currently available in the selected state. Try a different state or the other product.'
+          : `${product === 'HHC' ? 'HHC Shield' : 'HI Shield'} is available for customers ages ${rate.ageRange}.`;
+        return (
+          <div className="bg-light-cyan/40 rounded-2xl p-8 border-2 border-light-cyan flex items-center min-h-[300px]">
+            <div className="text-center w-full">
+              <div className="text-secondary font-heading font-bold text-xl mb-3">Not available</div>
+              <div className="text-mid-blue text-sm leading-relaxed">{msg}</div>
+            </div>
+          </div>
+        );
+      }
+      const totalY1 = ap * rate.y1;
+      const advance = totalY1 * RATES.paymentSplit.advancePct;
+      const residualMo = (totalY1 - advance) / RATES.paymentSplit.residualMonths.length;
+      const isHI = product === 'HI';
+      const renewalY2 = isHI ? ap * rate.renewalY2to10 : ap * rate.renewal;
+      const renewalY11 = isHI ? ap * rate.renewalY11 : null;
+      const renewalPct = isHI ? rate.renewalY2to10 : rate.renewal;
+      return (
+        <div className="bg-deep-navy text-white rounded-2xl p-6 sm:p-8 min-h-[300px]">
+          <div className="text-soft-blue text-xs uppercase font-heading font-semibold tracking-widest mb-2">Total Year 1 take-home</div>
+          <div className="text-accent font-heading font-bold text-5xl sm:text-6xl tabular-nums leading-none">{fmt$(totalY1)}</div>
+          <div className="text-soft-blue text-sm mt-2">{fmtPct(rate.y1)} of {fmt$(ap)} annual premium</div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <div className="text-soft-blue text-xs uppercase tracking-wider mb-1">Upfront at sale</div>
+              <div className="font-heading font-semibold text-2xl text-white tabular-nums">{fmt$(advance)}</div>
+              <div className="text-soft-blue text-xs mt-1">Advance — months 1–9</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <div className="text-soft-blue text-xs uppercase tracking-wider mb-1">Residual / month</div>
+              <div className="font-heading font-semibold text-2xl text-white tabular-nums">{fmt$(residualMo)}</div>
+              <div className="text-soft-blue text-xs mt-1">Months 10, 11, 12</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur rounded-xl p-4">
+              <div className="text-soft-blue text-xs uppercase tracking-wider mb-1">Renewal / year</div>
+              <div className="font-heading font-semibold text-2xl text-white tabular-nums">{fmt$(renewalY2)}</div>
+              <div className="text-soft-blue text-xs mt-1">
+                {isHI ? `Years 2–10 · ${fmtPct(rate.renewalY2to10)}` : `Year 2+ · ${fmtPct(rate.renewal)}`}
+              </div>
+            </div>
+          </div>
+
+          {isHI && (
+            <div className="mt-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm flex items-baseline justify-between flex-wrap gap-2">
+              <span className="text-soft-blue">Year 11+ lifetime renewal:</span>
+              <span>
+                <span className="font-heading font-semibold text-white tabular-nums">{fmt$(renewalY11)}/yr</span>
+                <span className="text-soft-blue ml-2">{fmtPct(rate.renewalY11)}</span>
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function Calculator({ formState, setFormState, rate }) {
+      const { product, stateCode, age, ap } = formState;
+      const onProductChange = (p) => {
+        let newAge = age;
+        const minAge = p === 'HHC' ? RATES.HHC.ageMin : RATES.HI.ageMin;
+        if (newAge < minAge) newAge = 65;
+        setFormState({ ...formState, product: p, age: newAge });
+      };
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <div className="mb-5">
+            <h2 className="font-heading font-bold text-2xl sm:text-3xl text-deep-navy mb-1">Your commission on one policy.</h2>
+            <p className="text-mid-blue text-sm">Drill into a single sale — pick the product, your customer's state and age, and the annual premium. This drives the payment timing and cancellation scenarios below it.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-[1fr_1.3fr] gap-6 sm:gap-8 items-start">
+            <div className="space-y-5">
+              <div>
+                <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider mb-2">Product</div>
+                <ProductToggle value={product} onChange={onProductChange} />
+              </div>
+              <StatePicker value={stateCode} onChange={v => setFormState({ ...formState, stateCode: v })} />
+              <AgeControl value={age}
+                onChange={v => setFormState({ ...formState, age: v })}
+                min={product === 'HHC' ? RATES.HHC.ageMin : RATES.HI.ageMin}
+                max={85}
+                disabled={product === 'HHC'} />
+              <ApInput value={ap} onChange={v => setFormState({ ...formState, ap: v })} />
+            </div>
+            <CalcOutput rate={rate} ap={ap} product={product} />
+          </div>
+        </section>
+      );
+    }
+
+    function ScenarioBanner({ formState, rate, label }) {
+      if (!rate.eligible) return null;
+      const productName = formState.product === 'HHC' ? 'HHC Shield' : 'HI Shield';
+      const stateName = (STATES.find(([code]) => code === formState.stateCode) || [])[1] || formState.stateCode;
+      const monthly = (formState.ap / 12).toFixed(0);
+      return (
+        <div className="bg-light-cyan/50 border border-light-cyan rounded-xl px-4 py-3 mb-5 text-sm text-secondary">
+          <div className="font-heading font-semibold mb-0.5">{label}</div>
+          <div className="text-mid-blue">
+            {productName} · {stateName} · age {formState.age} · <strong className="text-deep-navy">${formState.ap.toLocaleString()} annual premium</strong> (≈${monthly}/mo)
+          </div>
+          <div className="text-xs text-soft-blue mt-1">Change any of these in the <em>"Your commission, your scenario"</em> calculator above. Numbers below update with it.</div>
+        </div>
+      );
+    }
+
+    function PaymentTimeline({ formState, rate }) {
+      if (!rate.eligible) return null;
+      const totalY1 = formState.ap * rate.y1;
+      const advance = totalY1 * RATES.paymentSplit.advancePct;
+      const residualMo = (totalY1 - advance) / 3;
+      const isHI = formState.product === 'HI';
+      const renewalY2 = isHI ? formState.ap * rate.renewalY2to10 : formState.ap * rate.renewal;
+      const renewalY11 = isHI ? formState.ap * rate.renewalY11 : null;
+
+      const rows = [
+        {
+          when: 'Effective month', sub: 'Policy goes active',
+          title: 'Upfront advance hits',
+          body: 'Paid the month UNL activates the policy and pays CPC — usually 1–2 months after you submit the application, depending on the effective date the customer chose. This is 75% of your Year 1 commission, paid in one lump.',
+          value: fmt$(advance), unit: null,
+          border: 'border-accent', bg: 'bg-accent/20',
+        },
+        {
+          when: 'Months 10–12', sub: 'As-earned',
+          title: 'Monthly residual × 3',
+          body: 'The remaining 25% of Year 1 pays out across months 10, 11, and 12 as you "earn" it. One residual deposit per month, automatically.',
+          value: fmt$(residualMo), unit: '/mo',
+          border: 'border-mid-blue', bg: 'bg-mid-blue/10',
+        },
+        {
+          when: isHI ? 'Years 2–10' : 'Year 2+', sub: 'Annual',
+          title: 'Renewal commission',
+          body: isHI
+            ? 'Paid every year (years 2 through 10) on the policy anniversary, as long as the customer is still paying premium and the policy is in force.'
+            : 'Paid every year on the policy anniversary, as long as the customer is still paying premium and the policy is in force.',
+          value: fmt$(renewalY2), unit: '/yr',
+          border: 'border-secondary', bg: 'bg-secondary/10',
+        },
+      ];
+      if (isHI) {
+        rows.push({
+          when: 'Year 11+', sub: 'Lifetime',
+          title: 'Lifetime renewal',
+          body: 'HI Shield keeps paying after year 10 at a reduced rate, for as long as the policy stays in force.',
+          value: fmt$(renewalY11), unit: '/yr',
+          border: 'border-secondary border-dashed', bg: 'bg-secondary/5',
+        });
+      }
+
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <h2 className="font-heading font-bold text-2xl text-deep-navy mb-1">When you get paid.</h2>
+          <p className="text-mid-blue text-sm mb-5">Payment timing on one policy from sale through Year 11+.</p>
+
+          <ScenarioBanner formState={formState} rate={rate} label="This scenario:" />
+
+          <div className="space-y-3">
+            {rows.map((r, i) => (
+              <div key={i} className="flex items-stretch gap-3">
+                <div className="w-20 sm:w-28 flex-shrink-0 text-right pt-1">
+                  <div className="font-heading font-semibold text-secondary text-xs sm:text-sm">{r.when}</div>
+                  <div className="text-soft-blue text-xs">{r.sub}</div>
+                </div>
+                <div className={`flex-1 ${r.bg} border-l-4 ${r.border} rounded-r-lg p-4`}>
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <div className="font-heading font-semibold text-deep-navy text-base">{r.title}</div>
+                      <div className="text-xs text-mid-blue mt-0.5 leading-relaxed">{r.body}</div>
+                    </div>
+                    <div className="font-heading font-bold text-deep-navy text-2xl tabular-nums whitespace-nowrap">
+                      {r.value}{r.unit && <span className="text-sm font-body text-mid-blue ml-0.5">{r.unit}</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 text-xs text-mid-blue bg-light-cyan/40 rounded-lg p-4 leading-relaxed">
+            <strong className="text-secondary">Important:</strong> Your first dollar arrives the month the policy <em>takes effect</em> — not the day you submit the application. Submitted apps wait for underwriting, customer signature/payment, and the policy's chosen effective date before UNL pays the commission. Most ancillary policies effect 1–2 months after submit. After that, the advance (75%) lands as one lump, then months 10, 11, 12 pay the remaining 25% as monthly residuals.
+          </div>
+        </section>
+      );
+    }
+
+    function ChargebackScenario({ formState, rate }) {
+      const [cancelMonth, setCancelMonth] = useState(5);
+      if (!rate.eligible) return null;
+      const totalY1 = formState.ap * rate.y1;
+      const advance = totalY1 * RATES.paymentSplit.advancePct;
+      const residualMo = (totalY1 - advance) / 3;
+
+      let scenario;
+      if (cancelMonth <= 9) {
+        const owe = (9 - cancelMonth) / 12 * totalY1;
+        scenario = {
+          tone: 'warn',
+          headline: cancelMonth === 9 ? 'No chargeback — advance fully earned.' : `You'd owe ${fmt$(owe)} back.`,
+          body: cancelMonth === 9
+            ? 'At month 9 your advance is exactly equal to what you\'ve earned. No clawback applies. You won\'t receive the months 10–12 residuals.'
+            : `Cancellations in months 1–9 trigger a chargeback on the unearned portion of your advance. Formula: (9 − ${cancelMonth}) ÷ 12 × ${fmt$(totalY1)} = ${fmt$(owe)}.`,
+        };
+      } else if (cancelMonth <= 12) {
+        const monthsForfeit = 13 - cancelMonth;
+        const forfeit = residualMo * monthsForfeit;
+        scenario = {
+          tone: 'caution',
+          headline: cancelMonth === 12
+            ? `No chargeback — you'd forfeit ${fmt$(residualMo)} (one residual).`
+            : `No chargeback — you'd forfeit ${fmt$(forfeit)} in unpaid residuals.`,
+          body: `Your advance is fully earned by month 9, so nothing is clawed back. You stop receiving the remaining ${monthsForfeit} monthly residual payment${monthsForfeit > 1 ? 's' : ''} (${fmt$(residualMo)}/mo). Renewals would have started in Year 2 — those don't pay either.`,
+        };
+      } else {
+        scenario = {
+          tone: 'good',
+          headline: 'Year 1 fully earned. Renewals stop.',
+          body: `Past month 12, your Year 1 commission is locked in. The policy lapsing means future renewals don't pay — but there's no clawback on Year 1.`,
+        };
+      }
+
+      const palette = scenario.tone === 'warn'
+        ? 'bg-red-50 border-red-200 text-red-900'
+        : scenario.tone === 'caution'
+        ? 'bg-amber-50 border-amber-200 text-amber-900'
+        : 'bg-emerald-50 border-emerald-200 text-emerald-900';
+
+      const sliderBg = scenario.tone === 'warn'
+        ? 'linear-gradient(to right, #fecaca 0%, #fecaca ' + ((9/24)*100) + '%, #fde68a ' + ((9/24)*100) + '%, #fde68a ' + ((12/24)*100) + '%, #bbf7d0 ' + ((12/24)*100) + '%, #bbf7d0 100%)'
+        : null;
+
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <h2 className="font-heading font-bold text-2xl text-deep-navy mb-1">What if the policy cancels?</h2>
+          <p className="text-mid-blue text-sm mb-5">Drag the slider to see exactly what you keep at any cancellation month.</p>
+
+          <ScenarioBanner formState={formState} rate={rate} label="This scenario:" />
+
+          <div className="text-xs text-mid-blue mb-4">
+            A <strong className="text-secondary">cancellation</strong> means the customer stopped paying premium, formally cancelled the policy, or UNL rescinded it (e.g., misrepresentation on the application). Death or qualifying-event terminations may be treated differently — check with your CPC contact.
+          </div>
+
+          <div className="mb-5">
+            <div className="flex items-baseline justify-between mb-2">
+              <label className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider">Policy cancels in month</label>
+              <span className="font-heading font-bold text-3xl text-deep-navy tabular-nums">{cancelMonth}</span>
+            </div>
+            <input type="range" min={1} max={24} step={1} value={cancelMonth}
+              onChange={e => setCancelMonth(parseInt(e.target.value))} className="w-full" />
+            <div className="flex justify-between text-xs text-soft-blue mt-1">
+              <span>1</span><span>9 · advance ends</span><span>12 · Y1 ends</span><span>24</span>
+            </div>
+          </div>
+
+          <div className={`rounded-xl border-2 p-5 ${palette}`}>
+            <div className="font-heading font-bold text-xl mb-2">{scenario.headline}</div>
+            <div className="text-sm leading-relaxed">{scenario.body}</div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="font-heading font-semibold text-red-900 mb-1">Months 1–9</div>
+              <div className="text-red-800">Pro-rata chargeback on the unearned portion of your advance.</div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="font-heading font-semibold text-amber-900 mb-1">Months 10–12</div>
+              <div className="text-amber-800">No chargeback. You forfeit any unpaid residuals.</div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div className="font-heading font-semibold text-emerald-900 mb-1">Year 2+</div>
+              <div className="text-emerald-800">Year 1 fully earned. Renewals stop when the policy lapses.</div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function RateTables() {
+      const [tab, setTab] = useState('HHC');
+      return (
+        <section className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-light-cyan">
+          <h2 className="font-heading font-bold text-2xl text-deep-navy mb-1">Your rate, by state.</h2>
+          <p className="text-mid-blue text-sm mb-6">UNL sets premium and commission by state. The percentages below are your take-home — not subject to any further deduction.</p>
+
+          <div className="flex rounded-lg overflow-hidden border border-light-cyan mb-5 max-w-sm">
+            {['HHC', 'HI'].map(id => (
+              <button key={id} type="button" onClick={() => setTab(id)}
+                className={`flex-1 py-2.5 text-sm font-heading font-semibold transition-colors ${
+                  tab === id ? 'bg-secondary text-white' : 'bg-white text-secondary hover:bg-light-cyan/40'
+                }`}>
+                {id === 'HHC' ? 'HHC Shield' : 'HI Shield'}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'HHC' && (
+            <div>
+              {/* Mobile card layout */}
+              <div className="md:hidden space-y-3">
+                {[
+                  { states: RATES.HHC.standard.states, y1: '25.00%', renewal: '5.00%', tone: 'bg-white' },
+                  { states: RATES.HHC.adjusted.states, y1: '21.67%', renewal: '3.08%', tone: 'bg-light-cyan/20' },
+                ].map((row, i) => (
+                  <div key={i} className={`${row.tone} rounded-xl border border-light-cyan p-4`}>
+                    <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider mb-2">States</div>
+                    <div className="text-sm text-text leading-relaxed mb-4">{row.states.join(', ')}</div>
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-light-cyan">
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Year 1</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.y1}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Year 2+ Renewal</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.renewal}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="bg-light-cyan/30 px-4 py-3 text-xs text-mid-blue rounded-lg">Ages 55–85. HHC Shield pays the same rate across the full age range.</div>
+              </div>
+
+              {/* Desktop table layout */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-light-cyan">
+                <table className="w-full text-sm">
+                  <thead className="bg-secondary text-white">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs">States</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Year 1</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Year 2+ Renewal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-light-cyan">
+                    <tr className="bg-white">
+                      <td className="px-4 py-4 text-text leading-relaxed">{RATES.HHC.standard.states.join(', ')}</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">25.00%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">5.00%</td>
+                    </tr>
+                    <tr className="bg-light-cyan/20">
+                      <td className="px-4 py-4 text-text leading-relaxed">{RATES.HHC.adjusted.states.join(', ')}</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">21.67%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">3.08%</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="bg-light-cyan/30 px-4 py-3 text-xs text-mid-blue">Ages 55–85. HHC Shield pays the same rate across the full age range.</div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'HI' && (
+            <div>
+              {/* Mobile card layout */}
+              <div className="md:hidden space-y-3">
+                {[
+                  { states: RATES.HI.standard.states, y1y: '25.00%', y1s: '21.67%', r210: '5.77%', r11: '3.08%', tone: 'bg-white' },
+                  { states: RATES.HI.adjustedMid.states, y1y: '23.33%', y1s: '20.00%', r210: '3.85%', r11: '2.31%', tone: 'bg-light-cyan/20' },
+                  { states: RATES.HI.adjustedLow.states, y1y: '23.33%', y1s: '20.00%', r210: '2.31%', r11: '1.15%', tone: 'bg-light-cyan/30' },
+                ].map((row, i) => (
+                  <div key={i} className={`${row.tone} rounded-xl border border-light-cyan p-4`}>
+                    <div className="text-xs uppercase font-heading font-semibold text-secondary tracking-wider mb-2">States</div>
+                    <div className="text-sm text-text leading-relaxed mb-4">{row.states.join(', ')}</div>
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-light-cyan">
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Year 1 · Ages 50–79</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.y1y}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Year 1 · Ages 80–85</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.y1s}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Renewal Yrs 2–10</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.r210}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase text-mid-blue tracking-wider mb-1">Renewal Yr 11+</div>
+                        <div className="font-heading font-semibold text-deep-navy text-xl tabular-nums">{row.r11}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="bg-light-cyan/30 px-4 py-3 text-xs text-mid-blue rounded-lg">Ages 50–85. Year 1 rate drops at age 80; renewal rates apply across both age bands.</div>
+              </div>
+
+              {/* Desktop table layout */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-light-cyan">
+                <table className="w-full text-sm">
+                  <thead className="bg-secondary text-white">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs">States</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Yr 1 · Ages 50–79</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Yr 1 · Ages 80–85</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Renewal Yrs 2–10</th>
+                      <th className="text-right px-4 py-3 font-heading font-semibold uppercase tracking-wider text-xs whitespace-nowrap">Renewal Yr 11+</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-light-cyan">
+                    <tr className="bg-white">
+                      <td className="px-4 py-4 text-text leading-relaxed">{RATES.HI.standard.states.join(', ')}</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">25.00%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">21.67%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">5.77%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">3.08%</td>
+                    </tr>
+                    <tr className="bg-light-cyan/20">
+                      <td className="px-4 py-4 text-text leading-relaxed">{RATES.HI.adjustedMid.states.join(', ')}</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">23.33%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">20.00%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">3.85%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">2.31%</td>
+                    </tr>
+                    <tr className="bg-light-cyan/30">
+                      <td className="px-4 py-4 text-text leading-relaxed">{RATES.HI.adjustedLow.states.join(', ')}</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">23.33%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">20.00%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">2.31%</td>
+                      <td className="px-4 py-4 text-right font-heading font-semibold text-deep-navy tabular-nums whitespace-nowrap">1.15%</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="bg-light-cyan/30 px-4 py-3 text-xs text-mid-blue">Ages 50–85. Year 1 rate drops at age 80; renewal rates apply across both age bands.</div>
+              </div>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    function FAQ() {
+      const items = [
+        {
+          q: 'When do I actually get paid?',
+          a: 'Your 75% advance is paid shortly after the policy is issued and accepted by UNL. The remaining 25% of Year 1 pays out across months 10, 11, and 12 as you "earn" it. Renewals start in Year 2 and pay every year the policy stays in force.',
+        },
+        {
+          q: 'What counts as a cancellation?',
+          a: 'Any policy lapse — non-payment, customer-initiated cancellation, or carrier rescission — triggers the chargeback rules in the cancellation panel above. Death and certain qualifying events may be treated separately; check with your CPC contact.',
+        },
+        {
+          q: 'Who pays for the leads?',
+          a: 'CPC covers 100% of UNL ancillary lead costs. You don\'t front anything, you don\'t pay back anything out of commission. The percentages and dollar amounts shown in this tool are your full take-home, every sale. This is the recruiting differentiator: at most agencies, ancillary leads come out of your commission. Here they don\'t.',
+        },
+        {
+          q: 'Can I still cross-sell ancillary to my MA customers?',
+          a: 'Yes — ancillary cross-sell is encouraged on every MA call where the customer profile fits. But you don\'t have to. UNL ancillary is built to stand alone as a core product: CPC-supplied leads, a dedicated script, and the same commission structure whether the sale came from an ancillary lead or an MA cross-sell. The numbers in this tool assume ancillary as your primary book.',
+        },
+        {
+          q: 'I\'m on an ancillary call and the customer brings up their Medicare plan. Can I help them with that on this call?',
+          a: 'No — and this is one of the easiest ways to get terminated, so it matters. CMS marketing rules (42 CFR §422.2264) prohibit pivoting an ancillary call into a Medicare Advantage discussion. The correct move: (1) finish the ancillary conversation cleanly, (2) ask the customer to call you back on your MA-licensed line, and (3) on that second inbound call, obtain a fresh Scope of Appointment before any MA talk. The asymmetry matters — on an MA-led call you CAN cross-sell ancillary at the end (the SOA already covers it). The reverse is not allowed. The MA cross-sell rate in this tool assumes you\'re doing this compliantly via call-backs, which is why expected attach is typically 6–15% of your ancillary customers, not higher.',
+        },
+        {
+          q: 'Why does my rate change between states?',
+          a: 'UNL sets a different commission schedule in a small number of states based on each state\'s insurance regulations. Your rate for any sale is exactly the rate shown for the customer\'s state — no further deductions.',
+        },
+        {
+          q: 'What happens at Year 11 on HI Shield?',
+          a: 'HI Shield keeps paying renewal commission for as long as the policy stays in force, but the rate steps down at the start of Year 11. HHC Shield does not have this step-down — it pays the same renewal rate every year the policy is in force.',
+        },
+        {
+          q: 'Which states are covered?',
+          a: 'See the rate tables above. If a state is not listed for a product, UNL does not currently write that product there. You can still sell the other product if its rate table includes the state. Florida, for example, is covered for HI but not for HHC.',
+        },
+        {
+          q: 'Can my advance be clawed back?',
+          a: 'Yes, but only if the policy cancels in months 1–9. Drag the slider in the cancellation panel above to see the exact dollar amount for any month. After month 9, your advance is fully earned and cannot be clawed back.',
+        },
+      ];
+      return (
+        <section className="bg-white rounded-2xl shadow-sm border border-light-cyan overflow-hidden">
+          <div className="p-6 sm:p-8 pb-4">
+            <h2 className="font-heading font-bold text-2xl text-deep-navy mb-1">Common questions.</h2>
+            <p className="text-mid-blue text-sm">Tap any question to expand the answer.</p>
+          </div>
+          <div className="divide-y divide-light-cyan">
+            {items.map((item, i) => (
+              <details key={i} className="group">
+                <summary className="px-6 sm:px-8 py-4 flex items-center justify-between hover:bg-light-cyan/20 transition-colors">
+                  <span className="font-heading font-semibold text-secondary text-base pr-4">{item.q}</span>
+                  <span className="chevron text-secondary text-2xl font-heading font-light select-none flex-shrink-0">+</span>
+                </summary>
+                <div className="px-6 sm:px-8 pb-5 text-text text-sm leading-relaxed">{item.a}</div>
+              </details>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function Footer() {
+      return (
+        <footer className="text-center text-xs text-mid-blue space-y-2 py-6">
+          <p className="max-w-2xl mx-auto leading-relaxed">
+            All figures shown are agent take-home percentages. Final commission is governed by your CPC 1099 agreement and UNL's commission schedule by state. Rates current as of 2026-05-14 — confirm with your CPC contact before quoting customers.
+          </p>
+          <p className="text-soft-blue font-heading font-semibold tracking-wider uppercase text-[10px]">Clear Path Coverage · UNL Ancillary Compensation Model</p>
+        </footer>
+      );
+    }
+
+    function App() {
+      const [formState, setFormState] = useState({
+        product: 'HHC',
+        stateCode: 'GA',
+        age: 65,
+        ap: 780,
+      });
+      const rate = useMemo(
+        () => lookupRate(formState.product, formState.stateCode, formState.age),
+        [formState.product, formState.stateCode, formState.age]
+      );
+      return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+          <Hero />
+          <CareerOutlook />
+          <CareerCalculator />
+          <Calculator formState={formState} setFormState={setFormState} rate={rate} />
+          <PaymentTimeline formState={formState} rate={rate} />
+          <ChargebackScenario formState={formState} rate={rate} />
+          <RateTables />
+          <FAQ />
+          <Footer />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
