@@ -387,7 +387,7 @@
                     <div className="text-xs font-heading font-semibold text-accent bg-accent/15 px-2 py-0.5 rounded">Most of your book</div>
                   </div>
                   <div className="text-xs text-mid-blue mb-2">Short-Term Home Healthcare · ages 55–85</div>
-                  <div className="text-text leading-relaxed mb-2">Pays the customer a daily benefit when they need in-home care after a hospital stay — physical therapy, recovery support, help with bathing and daily living. Same commission rate at every eligible age. <strong className="text-secondary">This will be the bulk of your premium</strong> — HHC includes a built-in prescription reimbursement ($10/generic, $25/brand per fill, capped by tier) that offsets most of the customer's premium, which makes it dramatically easier to close than HI.</div>
+                  <div className="text-text leading-relaxed mb-2">Pays the customer a daily benefit when they need in-home care after a hospital stay — physical therapy, recovery support, help with bathing and daily living. <strong className="text-secondary">Real demand:</strong> ~70% of people 65+ will need help at home at some point, and Medicare covers only a sliver of it. Same commission rate at every eligible age. <strong className="text-secondary">This will be the bulk of your premium</strong> — HHC includes a built-in prescription reimbursement ($10/generic, $25/brand per fill, capped by tier) that offsets most of the customer's premium, which makes it dramatically easier to close than HI.</div>
                   <div className="bg-light-cyan/40 rounded-lg p-2 text-xs text-mid-blue space-y-1">
                     <div><strong className="text-deep-navy">3 plan tiers</strong> (premium varies by tier):</div>
                     <div>· <strong>Plan A</strong> · $50K total · ~$365/yr ($30/mo)</div>
@@ -520,9 +520,9 @@
                 <div className="text-xs text-mid-blue mt-2 italic">$780 default reflects a typical Plan B–C HHC mix. Plan A runs ~$365, Plan B ~$640, Plan C ~$941. Most of the book is HHC because the Rx reimbursement offsets premium and drives close rate.</div>
               </div>
               <PctSlider label="Placement rate" value={placement} onChange={setPlacement}
-                min={60} max={95} hint="% of submitted applications that take effect as active policies" />
+                min={60} max={95} hint="% of submitted applications that take effect as active policies. Some prospects get knocked out by underwriting — HHC has 3 knockout questions (4 for Plan C), HI has 5. The Crash Course covers these." />
               <PctSlider label="Year 1 retention (Month 12)" value={m12} onChange={setM12}
-                min={60} max={95} hint="% of placed policies that stay active through month 12 — known as M12 retention" />
+                min={60} max={95} hint="% of placed policies that stay active through month 12 — known as M12 retention. 80% is realistic for HHC because the Rx reimbursement creates 40–50+ touchpoints/year (every fill = claim submission = deposit), keeping customers engaged. Industry baseline without that mechanic is closer to 75%." />
               <PctSlider label="Renewals retention (Y2+)" value={y2Ret} onChange={setY2Ret}
                 min={60} max={95} hint="Year-over-year retention after a policy completes Year 1" />
 
@@ -1211,6 +1211,27 @@
       );
     }
 
+    function NextStep() {
+      return (
+        <section className="bg-gradient-to-br from-secondary to-deep-navy text-white rounded-2xl p-6 sm:p-8 shadow-xl">
+          <div className="grid sm:grid-cols-[1fr_auto] gap-5 items-center">
+            <div>
+              <div className="text-accent text-xs uppercase tracking-widest font-heading font-semibold mb-2">Next step</div>
+              <h2 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2">Now learn how to actually sell it.</h2>
+              <p className="text-white/80 text-sm sm:text-base leading-relaxed">
+                This tool covers compensation. The <strong className="text-accent">UNL Ancillary Crash Course</strong> covers everything else — what HHC and HI actually cover, the Medicare gap that creates demand, the NEPQ-based sales script, the math reframe for the Rx benefit, the 5 most common objections (with verbatim responses), and the compliance + graceful-disqualification rules. About 25 minutes end to end. Read it before your first call.
+              </p>
+            </div>
+            <a href="https://duynomite.github.io/unl-crash-course/" target="_blank" rel="noopener"
+              className="inline-flex items-center justify-center gap-2 bg-accent text-deep-navy font-heading font-semibold px-6 py-4 rounded-xl hover:bg-accent/90 transition-colors whitespace-nowrap">
+              Open the Crash Course
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+      );
+    }
+
     function Footer() {
       return (
         <footer className="text-center text-xs text-mid-blue space-y-2 py-6">
@@ -1244,6 +1265,7 @@
           <RateTables />
           <CareerCalculator />
           <FAQ />
+          <NextStep />
           <Footer />
         </div>
       );
